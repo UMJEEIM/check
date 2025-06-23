@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>음식 혈당 체크</title>
+    <!-- Tailwind CSS 로드 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React 로드 -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- Babel 로드 (JSX 변환용) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        /* 기본 폰트 및 배경색 설정 */
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;
+        }
+        /* 애니메이션 효과 */
+        @keyframes fade-in {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+          animation: fade-in 0.5s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="bg-green-50">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // 결과에 따라 다른 스타일(색상, 아이콘)을 반환하는 함수
+        const getResultStyle = (classification) => {
+          switch (classification) {
+            case '주의':
+              return {
+                bgColor: 'bg-red-100',
+                textColor: 'text-red-800',
+                borderColor: 'border-red-400',
+                icon: '⚠️',
+                label: '주의'
+              };
+            case '보통':
+              return {
+                bgColor: 'bg-yellow-100',
+                textColor: 'text-yellow-800',
+                borderColor: 'border-yellow-400',
+                icon: '🤔',
+                label: '보통'
+              };
+            case '안심':
+              return {
+                bgColor: 'bg-green-100',
+                textColor: 'text-green-800',
+                borderColor: 'border-green-400',
+                icon: '✅',
+                label: '안심'
+              };
+            default:
+              return {
+                bgColor: 'bg-gray-100',
+                textColor: 'text-gray-800',
+                borderColor: 'border-gray-300',
+                icon: '❓',
+                label: '확인 필요'
+              };
+          }
+        };
+
+        function App() {
+          const [foodInput, setFoodInput] = React.useState('');
+          const [results, setResults] = React.useState([]);
+          const [isLoading, setIsLoading] = React.useState(false);
+          const [error, setError] = React.useState(null);
+
+          // Gemini API를 호출하여 음식 정보를 가져오는 함수
+          const fetchFoodAnalysis = async (foodName) => {
+            setIsLoading(true);
+            setError(null);
+
+            const prompt = `당뇨병을 앓는 60대 어르신을 위해, 음식 '${foodName}'이 혈당에 미치는 영향을 분석해줘. 아주 간단하고 이해하기 쉬운 단어로 답변해줘. 답변은 꼭 아래 JSON 형식에 맞춰서 해줘.
+
+            - classification: 혈당 영향 정도를 '안심', '보통', '주의' 세 가지 중 하나로 분류해줘.
+            - explanation: 왜 그렇게 분류했는지 1~2 문장으로 아주 쉽게 설명해줘. (예: "흰쌀밥은 소화가 빨라 혈당을 빠르게 올릴 수 있어요.")`;
+            
+            try {
+              const chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
+              const payload = {
+                contents: chatHistory,
+                generationConfig: {
+                  responseMimeType: "application/json",
+                  responseSchema: {
+                    type: "OBJECT",
+                    properties: {
+                      classification: { type: "STRING", enum: ["주의", "보통", "안심"] },
+                      explanation: { type: "STRING" }
+                    },
+                    required: ["classification", "explanation"]
+                  }
+                }
+              };
+              
+              const apiKey = ""; // API 키가 필요하면 여기에 입력하세요. (현재는 Flash 모델을 사용하므로 비워둡니다)
+              const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+              const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+              });
+              
+              if (!response.ok) {
+                throw new Error(`API 오류가 발생했습니다: ${response.statusText}`);
+              }
+
+              const result = await response.json();
+              
+              if (result.candidates && result.candidates.length > 0) {
+                const text = result.candidates[0].content.parts[0].text;
+                const analysis = JSON.parse(text);
+                
+                const newResult = {
+                  id: Date.now(),
+                  food: foodName,
+                  ...analysis,
+                };
+                setResults(prev => [newResult, ...prev]);
+
+              } else {
+                throw new Error("결과를 받지 못했습니다. 다시 시도해주세요.");
+              }
+
+            } catch (err) {
+              console.error("API 호출 오류:", err);
+              setError("분석 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+            } finally {
+              setIsLoading(false);
+              setFoodInput('');
+            }
+          };
+
+          const handleSubmit = (e) => {
+            e.preventDefault();
+            if (!foodInput.trim() || isLoading) return;
+            fetchFoodAnalysis(foodInput.trim());
+          };
+
+          return (
+            <div className="container mx-auto max-w-lg p-4 sm:p-6 lg:p-8">
+              
+              <header className="text-center mb-8">
+                <h1 className="text-4xl font-bold text-green-700">음식 혈당 체크</h1>
+                <p className="text-lg text-gray-600 mt-2">음식을 입력하면 혈당 정보를 알려드려요</p>
+              </header>
+
+              <main>
+                <div className="bg-white p-6 rounded-2xl shadow-lg mb-8">
+                  <form onSubmit={handleSubmit}>
+                    <label htmlFor="foodInput" className="block text-xl font-semibold mb-3 text-gray-700">궁금한 음식을 입력하세요</label>
+                    <div className="flex gap-2">
+                      <input
+                        id="foodInput"
+                        type="text"
+                        value={foodInput}
+                        onChange={(e) => setFoodInput(e.target.value)}
+                        placeholder="예) 보리밥, 사과, 라면"
+                        className="flex-grow w-full p-3 border-2 border-gray-200 rounded-lg text-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition"
+                        disabled={isLoading}
+                      />
+                      <button 
+                        type="submit" 
+                        className="bg-green-600 text-white font-bold px-6 py-3 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-4 focus:ring-green-300 transition-all duration-200 disabled:bg-gray-400"
+                        disabled={isLoading || !foodInput.trim()}
+                      >
+                        {isLoading ? '확인중...' : '확인하기'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+                
+                {error && <p className="text-red-500 text-center mb-4">{error}</p>}
+
+                <div className="space-y-4">
+                  {results.length === 0 && !isLoading && (
+                    <p className="text-center text-gray-500 py-10 text-lg">
+                      궁금한 음식을 입력하고 '확인하기'를 눌러보세요.
+                    </p>
+                  )}
+                  {isLoading && results.length === 0 && (
+                      <p className="text-center text-gray-600 py-10 text-lg animate-pulse">
+                          똑똑한 인공지능이 분석하고 있어요...
+                      </p>
+                  )}
+
+                  {results.map(result => {
+                    const style = getResultStyle(result.classification);
+                    return (
+                      <div 
+                        key={result.id} 
+                        className={`border-l-8 ${style.borderColor} ${style.bgColor} p-5 rounded-lg shadow-md transition-all animate-fade-in`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <h2 className="text-2xl font-bold text-gray-800">{result.food}</h2>
+                          <span className={`px-4 py-1 text-lg font-bold ${style.textColor} ${style.bgColor} border-2 ${style.borderColor} rounded-full`}>
+                            {style.icon} {style.label}
+                          </span>
+                        </div>
+                        <p className={`mt-2 text-lg ${style.textColor}`}>
+                          {result.explanation}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </main>
+              
+            </div>
+          );
+        }
+
+        const domContainer = document.querySelector('#root');
+        const root = ReactDOM.createRoot(domContainer);
+        root.render(<App />);
+
+    </script>
+</body>
+</html>
