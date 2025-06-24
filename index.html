@@ -3,226 +3,218 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>음식 혈당 체크</title>
-    <!-- Tailwind CSS 로드 -->
+    <title>음식 혈당 체크 (오프라인 확장판)</title>
+    <!-- Tailwind CSS 로드: UI 스타일을 위한 도구 -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- React 로드 -->
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <!-- Babel 로드 (JSX 변환용) -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
     <style>
-        /* 기본 폰트 및 배경색 설정 */
+        /* 사용자 정의 스타일 */
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
         body {
-            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;
+            font-family: 'Pretendard', -apple-system, sans-serif;
+            background-color: #F0FDF4; /* bg-green-50 */
         }
-        /* 애니메이션 효과 */
+        /* 결과 카드가 나타날 때 부드러운 애니메이션 효과 */
         @keyframes fade-in {
-          from { opacity: 0; transform: translateY(-10px); }
+          from { opacity: 0; transform: translateY(-15px); }
           to { opacity: 1; transform: translateY(0); }
         }
         .animate-fade-in {
-          animation: fade-in 0.5s ease-out forwards;
+          animation: fade-in 0.6s ease-out forwards;
         }
     </style>
 </head>
 <body class="bg-green-50">
-    <div id="root"></div>
 
-    <script type="text/babel">
-        // 결과에 따라 다른 스타일(색상, 아이콘)을 반환하는 함수
-        const getResultStyle = (classification) => {
+    <div class="container mx-auto max-w-2xl p-4 sm:p-6 lg:p-8">
+      
+      <header class="text-center mb-8">
+        <h1 class="text-4xl font-bold text-green-800">음식 혈당 길잡이</h1>
+        <p class="text-lg text-gray-600 mt-2">음식을 검색하면 혈당 정보를 알려드려요</p>
+      </header>
+
+      <main>
+        <!-- 음식 검색 폼 -->
+        <div class="bg-white p-6 rounded-2xl shadow-lg mb-8">
+          <form id="food-form">
+            <label for="food-input" class="block text-xl font-semibold mb-3 text-gray-700">궁금한 음식을 입력하세요</label>
+            <div class="flex gap-2">
+              <input
+                id="food-input"
+                type="text"
+                placeholder="예) 흰쌀밥, 김치찌개, 사과"
+                class="flex-grow w-full p-3 border-2 border-gray-200 rounded-lg text-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition"
+              />
+              <button 
+                type="submit" 
+                class="bg-green-600 text-white font-bold px-6 py-3 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-4 focus:ring-green-300 transition-all duration-200"
+              >
+                찾아보기
+              </button>
+            </div>
+          </form>
+        </div>
+        
+        <!-- 검색 결과 표시 영역 -->
+        <div id="results-container" class="space-y-4">
+            <p id="initial-message" class="text-center text-gray-500 py-10 text-lg">
+                건강한 식습관을 위한 첫걸음! <br/> 위 칸에 음식 이름을 검색해보세요.
+            </p>
+        </div>
+      </main>
+
+      <footer class="text-center mt-12 text-sm text-gray-500">
+        <p>본 정보는 일반적인 참고자료이며, 의학적인 진단이나 처방을 대체할 수 없습니다. <br>정확한 건강 관리를 위해서는 의사 또는 영양사와 상담하세요.</p>
+      </footer>
+      
+    </div>
+
+    <script>
+        // --- 음식 데이터 ---
+        // 프로그램에 미리 저장해 둔 음식 정보입니다. (대폭 확장됨)
+        const foodData = [
+            // --- 주의가 필요한 음식 (혈당을 빠르게 높일 수 있어요) ---
+            { name: ['흰쌀밥', '흰밥', '쌀밥'], classification: '주의', explanation: '소화가 매우 빨라 혈당을 급격히 올릴 수 있습니다. 양을 조절해서 드세요.' },
+            { name: ['라면', '인스턴트 국수'], classification: '주의', explanation: '기름에 튀긴 면과 짠 국물은 혈당과 혈압에 좋지 않아요.' },
+            { name: ['떡', '떡볶이', '인절미', '송편', '백설기'], classification: '주의', explanation: '쌀을 압축해서 만들어 조금만 먹어도 혈당이 많이 오릅니다.' },
+            { name: ['밀가루 국수', '소면', '칼국수', '우동', '짜장면'], classification: '주의', explanation: '정제된 밀가루로 만들어 혈당을 빠르게 올립니다.' },
+            { name: ['흰빵', '식빵', '바게트'], classification: '주의', explanation: '정제된 밀가루로 만들어 소화가 빨라 혈당 관리에 주의가 필요해요.' },
+            { name: ['감자튀김', '튀김', '감자'], classification: '주의', explanation: '탄수화물이 많고, 특히 튀기면 열량이 높고 혈당을 빠르게 올려요.' },
+            { name: ['설탕', '꿀', '잼', '시럽', '물엿'], classification: '주의', explanation: '단순당은 흡수가 매우 빨라 혈당을 급격히 올리는 주범입니다.' },
+            { name: ['탄산음료', '콜라', '사이다', '과일주스', '식혜'], classification: '주의', explanation: '액체 형태의 설탕은 혈당을 가장 빠르고 높게 올립니다.' },
+            { name: ['과자', '비스킷', '케이크', '도넛', '초콜릿', '아이스크림', '약과'], classification: '주의', explanation: '설탕과 정제 밀가루가 많아 혈당 관리에 매우 좋지 않아요.' },
+            { name: ['고구마', '찐고구마', '군고구마'], classification: '주의', explanation: '달콤하고 맛있지만, 생각보다 혈당을 많이 올리니 양 조절이 중요해요.' },
+            { name: ['옥수수', '찐옥수수'], classification: '주의', explanation: '달콤한 맛처럼 혈당 지수가 높아 주의가 필요한 간식입니다.' },
+            { name: ['수박', '포도', '말린 과일', '건포도', '곶감'], classification: '주의', explanation: '수분이 많거나 당분이 응축된 과일은 혈당을 빠르게 올릴 수 있어 조금만 드세요.' },
+            { name: ['찹쌀'], classification: '주의', explanation: '일반 쌀보다 소화 흡수가 더 빨라 혈당을 더 급격하게 올립니다.' },
+            { name: ['피자'], classification: '주의', explanation: '밀가루 도우와 여러 토핑이 합쳐져 혈당을 높이고 열량이 많습니다.' },
+
+            // --- 보통인 음식 (양을 조절해서 드세요) ---
+            { name: ['김밥', '야채김밥', '참치김밥'], classification: '보통', explanation: '밥의 양이 많아 주의가 필요하지만, 채소와 단백질이 함께 있어 혈당 상승이 비교적 완만합니다. 1줄 이내로 드시는 것을 권장해요.' },
+            { name: ['현미밥', '갈색쌀'], classification: '보통', explanation: '흰밥보다는 좋지만, 여전히 탄수화물이므로 양을 조절해야 합니다.' },
+            { name: ['잡곡밥', '혼합곡'], classification: '보통', explanation: '식이섬유가 있어 혈당을 천천히 올리지만, 양 조절은 필수입니다.' },
+            { name: ['보리밥'], classification: '보통', explanation: '식이섬유가 풍부해 혈당 상승을 늦춰주지만, 양 조절은 필요합니다.' },
+            { name: ['김치찌개', '된장찌개'], classification: '보통', explanation: '건더기 위주로 드시고, 국물은 나트륨이 많으니 조금만 드세요.' },
+            { name: ['사과', '배', '오렌지', '귤', '바나나'], classification: '보통', explanation: '과일의 단맛(과당)도 혈당을 올리므로 하루에 1개 이내로 드세요.' },
+            { name: ['호박', '단호박'], classification: '보통', explanation: '식이섬유도 있지만 당분도 있어 양을 조절해서 드시는 게 좋아요.' },
+            { name: ['고등어구이', '삼치구이', '생선구이'], classification: '보통', explanation: '좋은 단백질이지만, 밥과 함께 많이 먹으면 혈당이 오를 수 있어요.' },
+            { name: ['돼지고기 수육', '보쌈'], classification: '보통', explanation: '단백질이 풍부하지만, 비계가 많은 부위는 피하고 살코기 위주로 드세요.' },
+            { name: ['메밀국수', '막국수'], classification: '보통', explanation: '밀가루 국수보다는 낫지만 양념과 함께 먹으면 혈당이 오를 수 있어요.' },
+            { name: ['만두', '김치만두', '고기만두'], classification: '보통', explanation: '만두피는 밀가루지만, 속재료와 함께 먹어 혈당 상승이 비교적 완만해요. 양 조절은 필수!' },
+            { name: ['전', '파전', '김치전'], classification: '보통', explanation: '밀가루와 기름이 많아 주의해야 하지만, 채소 건더기 위주로 조금만 드세요.' },
+            { name: ['통밀빵', '호밀빵'], classification: '보통', explanation: '흰빵보다 식이섬유가 많아 혈당을 천천히 올리지만, 역시 양 조절이 중요해요.' },
+            { name: ['치즈'], classification: '보통', explanation: '단백질과 지방이 풍부하지만, 포화지방이 많을 수 있어 적당량만 드세요.' },
+
+            // --- 안심하고 드실 수 있는 음식 (혈당에 영향이 적어요) ---
+            { name: ['두부', '순두부', '연두부'], classification: '안심', explanation: '좋은 식물성 단백질이며 혈당에 미치는 영향이 매우 적습니다.' },
+            { name: ['계란', '달걀', '계란찜', '삶은계란'], classification: '안심', explanation: '완전식품으로 불리는 좋은 단백질 공급원이며 혈당을 거의 올리지 않아요.' },
+            { name: ['채소', '나물', '샐러드'], classification: '안심', explanation: '식이섬유가 풍부해 혈당을 안정시키고 건강에 매우 좋습니다.' },
+            { name: ['상추', '깻잎', '양배추'], classification: '안심', explanation: '쌈채소는 포만감을 주고 혈당 상승을 막아주는 최고의 친구입니다.' },
+            { name: ['버섯', '새송이', '표고', '느타리'], classification: '안심', explanation: '식이섬유가 풍부하고 칼로리가 낮아 혈당 걱정 없이 드실 수 있어요.' },
+            { name: ['오이', '당근', '파프리카'], classification: '안심', explanation: '신선한 채소는 혈당 관리에 매우 좋으며 간식으로도 훌륭합니다.' },
+            { name: ['김', '미역', '다시마', '해조류'], classification: '안심', explanation: '미네랄과 식이섬유가 풍부하여 혈당 관리에 도움을 줍니다.' },
+            { name: ['콩', '서리태', '병아리콩', '렌틸콩', '청국장'], classification: '안심', explanation: '혈당을 천천히 올리고 좋은 단백질과 식이섬유를 제공합니다.' },
+            { name: ['견과류', '호두', '아몬드'], classification: '안심', explanation: '좋은 지방과 단백질이 있어 간식으로 좋지만, 양은 한 줌 이내로 드세요.' },
+            { name: ['닭가슴살', '삶은 닭고기'], classification: '안심', explanation: '기름기 없는 단백질은 포만감을 주고 혈당에 영향을 주지 않아요.' },
+            { name: ['토마토', '방울토마토'], classification: '안심', explanation: '혈당 지수가 낮아 당뇨 환자에게 아주 좋은 채소이자 과일입니다.' },
+            { name: ['딸기', '블루베리', '라즈베리', '베리류'], classification: '안심', explanation: '다른 과일에 비해 당 함량이 낮고 항산화 성분이 풍부해요.' },
+            { name: ['아보카도'], classification: '안심', explanation: '건강한 지방이 풍부하고 탄수화물이 적어 혈당에 거의 영향을 주지 않습니다.' },
+            { name: ['그릭 요거트', '무가당 요거트'], classification: '안심', explanation: '설탕이 없는 요거트는 단백질이 풍부하여 혈당 관리에 도움이 됩니다.' },
+            { name: ['멸치'], classification: '안심', explanation: '칼슘과 단백질이 풍부하며 볶음이나 국물용으로 좋습니다.' },
+            { name: ['들기름', '참기름', '올리브유'], classification: '안심', explanation: '건강한 불포화지방산으로, 요리에 적당량 사용하면 건강에 이롭습니다.' },
+            { name: ['두유', '무가당 두유'], classification: '안심', explanation: '설탕이 첨가되지 않은 두유는 좋은 단백질 공급원입니다. (가당 두유는 주의!)' }
+        ];
+
+
+        // --- 프로그램 로직 ---
+        // 필요한 HTML 요소들을 가져옵니다.
+        const foodForm = document.getElementById('food-form');
+        const foodInput = document.getElementById('food-input');
+        const resultsContainer = document.getElementById('results-container');
+        const initialMessage = document.getElementById('initial-message');
+
+        // '찾아보기' 버튼을 누르거나 엔터를 쳤을 때 실행될 함수
+        foodForm.addEventListener('submit', function(event) {
+            event.preventDefault(); // 폼 제출 시 페이지가 새로고침되는 것을 막음
+            const searchTerm = foodInput.value.trim().toLowerCase(); // 입력된 값의 양쪽 공백 제거
+
+            if (!searchTerm) {
+                alert('음식 이름을 입력해주세요.');
+                return;
+            }
+
+            // 이전 검색 결과 지우기
+            resultsContainer.innerHTML = '';
+            
+            // 음식 데이터에서 일치하는 항목 찾기
+            const foundFoods = foodData.filter(food => {
+                // 음식 이름 배열에 있는 어떤 이름이라도 검색어가 포함되면 true
+                return food.name.some(name => searchTerm.includes(name) || name.includes(searchTerm));
+            });
+
+
+            if (foundFoods.length > 0) {
+                foundFoods.forEach(food => {
+                    displayResult(food);
+                });
+            } else {
+                displayNotFound();
+            }
+
+            foodInput.value = ''; // 입력창 비우기
+        });
+
+        // 검색 결과를 화면에 예쁘게 표시하는 함수
+        function displayResult(food) {
+            const style = getResultStyle(food.classification);
+            const resultCard = document.createElement('div');
+            resultCard.className = `border-l-8 ${style.borderColor} ${style.bgColor} p-5 rounded-lg shadow-md transition-all animate-fade-in`;
+            
+            resultCard.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <h2 class="text-2xl font-bold text-gray-800">${food.name[0]}</h2>
+                    <span class="px-4 py-1 text-lg font-bold ${style.textColor} ${style.bgColor} border-2 ${style.borderColor} rounded-full">
+                        ${style.icon} ${food.classification}
+                    </span>
+                </div>
+                <p class="mt-2 text-lg ${style.textColor}">
+                    ${food.explanation}
+                </p>
+            `;
+            resultsContainer.appendChild(resultCard);
+        }
+
+        // 검색 결과가 없을 때 메시지를 표시하는 함수
+        function displayNotFound() {
+             const notFoundCard = document.createElement('div');
+             notFoundCard.className = 'bg-gray-100 p-5 rounded-lg shadow-md text-center animate-fade-in';
+             notFoundCard.innerHTML = `
+                <h2 class="text-xl font-bold text-gray-700">죄송합니다 😥</h2>
+                <p class="mt-2 text-gray-600">입력하신 음식에 대한 정보가 아직 없어요. <br> 더 많은 음식 정보를 계속 추가할게요!</p>
+             `;
+             resultsContainer.appendChild(notFoundCard);
+        }
+        
+        // 분류에 따라 다른 스타일(색상, 아이콘)을 반환하는 함수
+        function getResultStyle(classification) {
           switch (classification) {
             case '주의':
               return {
-                bgColor: 'bg-red-100',
-                textColor: 'text-red-800',
-                borderColor: 'border-red-400',
-                icon: '⚠️',
-                label: '주의'
+                bgColor: 'bg-red-100', textColor: 'text-red-800',
+                borderColor: 'border-red-400', icon: '⚠️'
               };
             case '보통':
               return {
-                bgColor: 'bg-yellow-100',
-                textColor: 'text-yellow-800',
-                borderColor: 'border-yellow-400',
-                icon: '🤔',
-                label: '보통'
+                bgColor: 'bg-yellow-100', textColor: 'text-yellow-800',
+                borderColor: 'border-yellow-400', icon: '🤔'
               };
             case '안심':
-              return {
-                bgColor: 'bg-green-100',
-                textColor: 'text-green-800',
-                borderColor: 'border-green-400',
-                icon: '✅',
-                label: '안심'
-              };
             default:
               return {
-                bgColor: 'bg-gray-100',
-                textColor: 'text-gray-800',
-                borderColor: 'border-gray-300',
-                icon: '❓',
-                label: '확인 필요'
+                bgColor: 'bg-green-100', textColor: 'text-green-800',
+                borderColor: 'border-green-400', icon: '✅'
               };
           }
-        };
-
-        function App() {
-          const [foodInput, setFoodInput] = React.useState('');
-          const [results, setResults] = React.useState([]);
-          const [isLoading, setIsLoading] = React.useState(false);
-          const [error, setError] = React.useState(null);
-
-          // Gemini API를 호출하여 음식 정보를 가져오는 함수
-          const fetchFoodAnalysis = async (foodName) => {
-            setIsLoading(true);
-            setError(null);
-
-            const prompt = `당뇨병을 앓는 60대 어르신을 위해, 음식 '${foodName}'이 혈당에 미치는 영향을 분석해줘. 아주 간단하고 이해하기 쉬운 단어로 답변해줘. 답변은 꼭 아래 JSON 형식에 맞춰서 해줘.
-
-            - classification: 혈당 영향 정도를 '안심', '보통', '주의' 세 가지 중 하나로 분류해줘.
-            - explanation: 왜 그렇게 분류했는지 1~2 문장으로 아주 쉽게 설명해줘. (예: "흰쌀밥은 소화가 빨라 혈당을 빠르게 올릴 수 있어요.")`;
-            
-            try {
-              const chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
-              const payload = {
-                contents: chatHistory,
-                generationConfig: {
-                  responseMimeType: "application/json",
-                  responseSchema: {
-                    type: "OBJECT",
-                    properties: {
-                      classification: { type: "STRING", enum: ["주의", "보통", "안심"] },
-                      explanation: { type: "STRING" }
-                    },
-                    required: ["classification", "explanation"]
-                  }
-                }
-              };
-              
-              const apiKey = ""; // API 키가 필요하면 여기에 입력하세요. (현재는 Flash 모델을 사용하므로 비워둡니다)
-              const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-
-              const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-              });
-              
-              if (!response.ok) {
-                throw new Error(`API 오류가 발생했습니다: ${response.statusText}`);
-              }
-
-              const result = await response.json();
-              
-              if (result.candidates && result.candidates.length > 0) {
-                const text = result.candidates[0].content.parts[0].text;
-                const analysis = JSON.parse(text);
-                
-                const newResult = {
-                  id: Date.now(),
-                  food: foodName,
-                  ...analysis,
-                };
-                setResults(prev => [newResult, ...prev]);
-
-              } else {
-                throw new Error("결과를 받지 못했습니다. 다시 시도해주세요.");
-              }
-
-            } catch (err) {
-              console.error("API 호출 오류:", err);
-              setError("분석 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
-            } finally {
-              setIsLoading(false);
-              setFoodInput('');
-            }
-          };
-
-          const handleSubmit = (e) => {
-            e.preventDefault();
-            if (!foodInput.trim() || isLoading) return;
-            fetchFoodAnalysis(foodInput.trim());
-          };
-
-          return (
-            <div className="container mx-auto max-w-lg p-4 sm:p-6 lg:p-8">
-              
-              <header className="text-center mb-8">
-                <h1 className="text-4xl font-bold text-green-700">음식 혈당 체크</h1>
-                <p className="text-lg text-gray-600 mt-2">음식을 입력하면 혈당 정보를 알려드려요</p>
-              </header>
-
-              <main>
-                <div className="bg-white p-6 rounded-2xl shadow-lg mb-8">
-                  <form onSubmit={handleSubmit}>
-                    <label htmlFor="foodInput" className="block text-xl font-semibold mb-3 text-gray-700">궁금한 음식을 입력하세요</label>
-                    <div className="flex gap-2">
-                      <input
-                        id="foodInput"
-                        type="text"
-                        value={foodInput}
-                        onChange={(e) => setFoodInput(e.target.value)}
-                        placeholder="예) 보리밥, 사과, 라면"
-                        className="flex-grow w-full p-3 border-2 border-gray-200 rounded-lg text-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition"
-                        disabled={isLoading}
-                      />
-                      <button 
-                        type="submit" 
-                        className="bg-green-600 text-white font-bold px-6 py-3 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-4 focus:ring-green-300 transition-all duration-200 disabled:bg-gray-400"
-                        disabled={isLoading || !foodInput.trim()}
-                      >
-                        {isLoading ? '확인중...' : '확인하기'}
-                      </button>
-                    </div>
-                  </form>
-                </div>
-                
-                {error && <p className="text-red-500 text-center mb-4">{error}</p>}
-
-                <div className="space-y-4">
-                  {results.length === 0 && !isLoading && (
-                    <p className="text-center text-gray-500 py-10 text-lg">
-                      궁금한 음식을 입력하고 '확인하기'를 눌러보세요.
-                    </p>
-                  )}
-                  {isLoading && results.length === 0 && (
-                      <p className="text-center text-gray-600 py-10 text-lg animate-pulse">
-                          똑똑한 인공지능이 분석하고 있어요...
-                      </p>
-                  )}
-
-                  {results.map(result => {
-                    const style = getResultStyle(result.classification);
-                    return (
-                      <div 
-                        key={result.id} 
-                        className={`border-l-8 ${style.borderColor} ${style.bgColor} p-5 rounded-lg shadow-md transition-all animate-fade-in`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <h2 className="text-2xl font-bold text-gray-800">{result.food}</h2>
-                          <span className={`px-4 py-1 text-lg font-bold ${style.textColor} ${style.bgColor} border-2 ${style.borderColor} rounded-full`}>
-                            {style.icon} {style.label}
-                          </span>
-                        </div>
-                        <p className={`mt-2 text-lg ${style.textColor}`}>
-                          {result.explanation}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </main>
-              
-            </div>
-          );
         }
-
-        const domContainer = document.querySelector('#root');
-        const root = ReactDOM.createRoot(domContainer);
-        root.render(<App />);
 
     </script>
 </body>
